@@ -1,0 +1,712 @@
+# 🍽️ Restaurant Relationship & Recommendation Explorer — Backend
+
+A robust Node.js backend API for a restaurant recommendation system powered by **CognoDB** (Neo4j graph database). This backend demonstrates the power of graph relationships through multi-hop queries to provide intelligent recommendations based on customer ordering patterns.
+
+---
+
+## 📋 Overview
+
+This backend provides REST APIs for:
+- Restaurant management and search
+- Customer profiles and purchase history
+- Multi-hop graph-based recommendations
+- Graph data visualization
+- Dashboard analytics
+
+The key differentiator: **Graph-based recommendations** using relationship traversal across the entire customer and restaurant network.
+
+---
+
+## 🏗️ Architecture
+
+```
+REST API Requests
+    ↓
+Routes (Express Router)
+    ↓
+Controllers (Request handling)
+    ↓
+Services (Business logic)
+    ↓
+Cypher Queries (Neo4j/CognoDB)
+    ↓
+Neo4j JavaScript Driver
+    ↓
+Bolt Protocol
+    ↓
+CognoDB Database
+```
+
+### Key Design Principles
+
+- **Thin Controllers**: Controllers only handle HTTP concerns (requests/responses)
+- **Rich Services**: Business logic lives in services
+- **Organized Queries**: Cypher queries are centralized and parameterized
+- **Parameterized Cypher**: All queries use parameters to prevent injection
+- **No ORM**: Direct Neo4j driver usage for full flexibility
+
+---
+
+## 🛠️ Technology Stack
+
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **Database**: CognoDB (Neo4j)
+- **Driver**: Official Neo4j JavaScript Driver v6
+- **Protocol**: Bolt
+- **Config**: dotenv
+- **CORS**: cors middleware
+- **Module System**: ES Modules
+
+### Why No ORM?
+
+Graph databases don't benefit from ORMs. Direct driver usage:
+- ✅ Full control over Cypher queries
+- ✅ Multi-hop queries without N+1 problems
+- ✅ Better performance
+- ✅ Clear relationship traversal
+
+---
+
+## 📁 Project Structure
+
+```
+backend/
+├── src/
+│   ├── config/
+│   │   └── database.js          # Neo4j driver initialization
+│   │
+│   ├── controllers/             # Request handlers
+│   │   ├── healthController.js
+│   │   ├── dashboardController.js
+│   │   ├── restaurantController.js
+│   │   ├── customerController.js
+│   │   ├── recommendationController.js
+│   │   └── graphController.js
+│   │
+│   ├── services/                # Business logic
+│   │   ├── dashboardService.js
+│   │   ├── restaurantService.js
+│   │   ├── customerService.js
+│   │   ├── recommendationService.js
+│   │   └── graphService.js
+│   │
+│   ├── routes/                  # API routes
+│   │   ├── healthRoutes.js
+│   │   ├── dashboardRoutes.js
+│   │   ├── restaurantRoutes.js
+│   │   ├── customerRoutes.js
+│   │   ├── recommendationRoutes.js
+│   │   └── graphRoutes.js
+│   │
+│   ├── queries/                 # Cypher queries (organized)
+│   │   ├── dashboardQueries.js
+│   │   ├── restaurantQueries.js
+│   │   ├── customerQueries.js
+│   │   ├── recommendationQueries.js
+│   │   └── graphQueries.js
+│   │
+│   ├── middleware/              # Express middleware
+│   │   ├── errorHandler.js
+│   │   └── notFound.js
+│   │
+│   ├── utils/                   # Utilities
+│   │   └── response.js          # Response formatters
+│   │
+│   └── app.js                   # Express app setup
+│
+├── database/
+│   ├── schema.cypher            # Database schema documentation
+│   └── seed.js                  # Database seeding script
+│
+├── .env.example                 # Environment variables template
+├── .gitignore
+├── package.json
+└── README.md
+```
+
+---
+
+## 🗄️ CognoDB Setup
+
+### Connection Configuration
+
+```javascript
+// src/config/database.js
+const driver = neo4j.driver(
+  process.env.COGNODB_URI,
+  neo4j.auth.basic(
+    process.env.COGNODB_USERNAME,
+    process.env.COGNODB_PASSWORD
+  )
+);
+```
+
+### Features
+
+- Connection pooling (10-50 connections)
+- Session management with automatic closure
+- Error handling and reconnection
+- Query parameterization (safe from injection)
+
+### Query Execution
+
+```javascript
+// Safe query execution with parameters
+const result = await executeQuery(
+  'MATCH (c:Customer {id: $customerId}) RETURN c',
+  { customerId: '123' }
+);
+```
+
+---
+
+## 🌱 Graph Data Model
+
+### Nodes
+
+```
+Customer         Order              Dish           Category
+├─ id            ├─ id              ├─ id          ├─ id
+├─ name          ├─ orderDate       ├─ name        └─ name
+├─ email         ├─ totalAmount     ├─ price
+└─ phone         └─ status          └─ description
+
+Restaurant       Cuisine            Area
+├─ id            ├─ id              ├─ id
+├─ name          └─ name            ├─ name
+├─ description                      └─ city
+├─ rating
+└─ address
+```
+
+### Relationships
+
+```
+(Customer)-[:PLACED]->(Order)
+(Order)-[:CONTAINS {quantity}]->(Dish)
+(Dish)-[:BELONGS_TO]->(Category)
+(Restaurant)-[:SERVES]->(Dish)
+(Restaurant)-[:HAS_CUISINE]->(Cuisine)
+(Restaurant)-[:LOCATED_IN]->(Area)
+(Customer)-[:LIVES_IN]->(Area)
+(Customer)-[:LIKES]->(Cuisine)
+```
+
+### Sample Data
+
+Generated by `database/seed.js`:
+- 25 restaurants
+- 150 customers
+- 33 dishes
+- 8 categories
+- 22 cuisines
+- 10 areas
+- 400+ orders
+
+---
+
+## 🚀 Installation
+
+### Prerequisites
+
+- Node.js 16+
+- CognoDB instance running (or local Neo4j 4.x+)
+- npm or yarn
+
+### Steps
+
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+2. **Create environment file**:
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Configure environment variables**:
+   ```env
+   PORT=5000
+   COGNODB_URI=bolt+s://your-instance.databases.cognodb.cloud
+   COGNODB_USERNAME=cognodb
+   COGNODB_PASSWORD=your-password
+   FRONTEND_URL=http://localhost:5173
+   ```
+
+4. **Seed the database** (optional):
+   ```bash
+   npm run seed
+   ```
+
+---
+
+## ▶️ Running Locally
+
+### Development Mode (with auto-reload)
+```bash
+npm run dev
+```
+
+### Production Mode
+```bash
+npm start
+```
+
+### Seed Database
+```bash
+npm run seed
+```
+
+The server starts on `http://localhost:5000`.
+
+---
+
+## 📚 API Endpoints
+
+### Health Check
+
+```
+GET /api/health
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Health check passed",
+  "data": {
+    "database": "connected"
+  }
+}
+```
+
+### Dashboard
+
+```
+GET /api/dashboard
+```
+
+Returns: statistics, popular cuisines, popular dishes, top restaurants, recent orders
+
+### Restaurants
+
+```
+GET /api/restaurants                    - All restaurants (paginated)
+GET /api/restaurants?search=biryani     - Search by name
+GET /api/restaurants?cuisine=North%20Indian  - Filter by cuisine
+GET /api/restaurants?area=Downtown      - Filter by area
+GET /api/restaurants/:id                - Restaurant details
+GET /api/restaurants/serving/:dishId    - Restaurants serving a dish
+```
+
+### Customers
+
+```
+GET /api/customers                      - All customers (paginated)
+GET /api/customers?search=Rajesh        - Search by name
+GET /api/customers/:id                  - Customer details
+GET /api/customers/:id/purchases        - Purchase history
+GET /api/customers/:id/orders           - Order history
+GET /api/customers/:id/preferences      - Cuisine preferences
+GET /api/customers/:id/stats            - Spending statistics
+```
+
+### Recommendations (🌟 Key Feature)
+
+```
+GET /api/customers/:id/recommendations
+```
+
+**Multi-hop Graph Traversal**:
+```
+Customer → Order → Dish ← Order ← Similar Customer → Order → Dish → Restaurant
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "customerId": "id-xyz",
+    "recommendationCount": 10,
+    "recommendations": [
+      {
+        "id": "r-1",
+        "name": "Biryani House",
+        "rating": 4.7,
+        "similarCustomers": 25,
+        "matchingDishes": 8,
+        "recommendationScore": 50,
+        "reason": "25 similar customers ordered here"
+      }
+    ]
+  }
+}
+```
+
+**Alternative endpoints**:
+```
+GET /api/customers/:id/recommendations/detailed         - With dishes & cuisines
+GET /api/customers/:id/recommendations/cuisine-based    - By cuisine preference
+GET /api/customers/:id/recommendations/area-based       - By area
+GET /api/customers/:id/recommendations/with-reasons     - With detailed reasons
+GET /api/customers/:id/similar-customers                - Find similar customers
+```
+
+### Graph Explorer
+
+```
+GET /api/graph/customer/:id
+```
+
+Returns graph nodes and relationships for visualization.
+
+**Response**:
+```json
+{
+  "success": true,
+  "customerId": "id-xyz",
+  "nodes": [
+    {
+      "id": "c-1",
+      "type": "Customer",
+      "label": "Rajesh Kumar",
+      "properties": { "name": "Rajesh Kumar", "email": "rajesh@example.com" }
+    }
+  ],
+  "relationships": [
+    {
+      "id": "c-1-PLACED-o-1",
+      "type": "PLACED",
+      "source": "c-1",
+      "target": "o-1",
+      "properties": {}
+    }
+  ],
+  "statistics": {
+    "nodeCount": 45,
+    "relationshipCount": 78
+  }
+}
+```
+
+---
+
+## 🔍 Cypher Queries - Multi-Hop Examples
+
+### Recommendation Query (2+ hops)
+
+```cypher
+MATCH (target:Customer {id: $customerId})
+      -[:PLACED]->(:Order)
+      -[:CONTAINS]->(d:Dish)
+
+MATCH (similar:Customer)
+      -[:PLACED]->(:Order)
+      -[:CONTAINS]->(d)
+
+MATCH (similar)
+      -[:PLACED]->(:Order)
+      -[:CONTAINS]->(recommended:Dish)
+
+MATCH (restaurant:Restaurant)
+      -[:SERVES]->(recommended)
+
+WHERE target <> similar
+
+RETURN
+    restaurant.id,
+    restaurant.name,
+    COUNT(DISTINCT similar) AS similarCustomers,
+    COUNT(DISTINCT recommended) AS matchingDishes
+
+ORDER BY similarCustomers DESC
+LIMIT 10
+```
+
+### Key Points
+
+1. **3 hops** in the graph:
+   - Hop 1: Customer → Order → Dish
+   - Hop 2: Find similar customers with same dish
+   - Hop 3: Get restaurants they ordered from
+
+2. **Parameterized**: `$customerId` prevents injection
+
+3. **Relationship-based filtering**: Uses graph structure for relevance
+
+4. **Performance**: Neo4j's graph indexes make this fast
+
+---
+
+## 🛡️ Parameterized Cypher (Security)
+
+### ✅ GOOD - Parameterized
+```javascript
+const result = await session.run(
+  'MATCH (c:Customer {id: $customerId}) RETURN c',
+  { customerId: userId }
+);
+```
+
+### ❌ BAD - String Concatenation (Don't do this!)
+```javascript
+const result = await session.run(
+  `MATCH (c:Customer {id: '${userId}'}) RETURN c`  // DANGEROUS!
+);
+```
+
+**All queries in this backend use parameterization**.
+
+---
+
+## ⚠️ Error Handling
+
+Centralized error handling in `src/middleware/errorHandler.js`:
+
+- Database unavailable: 503
+- Invalid customer/restaurant ID: 400
+- Customer/restaurant not found: 404
+- Query failures: 500
+- Validation errors: 400
+
+**Response Format**:
+```json
+{
+  "success": false,
+  "message": "Invalid customer ID provided",
+  "errorCode": "INVALID_CUSTOMER_ID"
+}
+```
+
+---
+
+## ✅ Response Format
+
+### Success
+```json
+{
+  "success": true,
+  "message": "Data retrieved",
+  "data": { ... }
+}
+```
+
+### Paginated
+```json
+{
+  "success": true,
+  "data": [ ... ],
+  "pagination": {
+    "skip": 0,
+    "limit": 20,
+    "total": 150,
+    "hasMore": true
+  }
+}
+```
+
+### Error
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "errorCode": "ERROR_CODE"
+}
+```
+
+---
+
+## 🔐 CORS Configuration
+
+Configured for local development:
+
+```javascript
+// Default: http://localhost:5173
+// Override with FRONTEND_URL environment variable
+```
+
+For production, update `FRONTEND_URL` to your deployed frontend domain.
+
+---
+
+## 🔄 Graceful Shutdown
+
+Server handles:
+- `SIGTERM` / `SIGINT` signals
+- Uncaught exceptions
+- Unhandled promise rejections
+
+Database connection is closed properly before exit.
+
+```javascript
+// Automatic on process termination
+await closeConnection();
+```
+
+---
+
+## 🧪 Testing Endpoints
+
+### 1. Health Check
+```bash
+curl http://localhost:5000/api/health
+```
+
+### 2. Get Dashboard
+```bash
+curl http://localhost:5000/api/dashboard
+```
+
+### 3. Search Restaurants
+```bash
+curl "http://localhost:5000/api/restaurants?search=biryani&cuisine=North%20Indian"
+```
+
+### 4. Get Customer
+```bash
+curl http://localhost:5000/api/customers/id-123
+```
+
+### 5. Get Recommendations (Key Test)
+```bash
+curl http://localhost:5000/api/customers/id-123/recommendations?limit=10
+```
+
+### 6. Get Graph
+```bash
+curl http://localhost:5000/api/graph/customer/id-123
+```
+
+---
+
+## 📊 Performance Considerations
+
+1. **Connection Pooling**: 10-50 connections managed by driver
+2. **Query Optimization**: Indexes on ID, name, email fields
+3. **Pagination**: Limit results to 20-100 records
+4. **Caching**: Consider adding Redis for popular queries
+5. **Lazy Loading**: Graph queries support depth limiting
+
+---
+
+## 🚀 Production Deployment
+
+### Checklist
+
+- [ ] Set `NODE_ENV=production`
+- [ ] Use strong `COGNODB_PASSWORD`
+- [ ] Configure `FRONTEND_URL` for CORS
+- [ ] Use `bolt+s://` (secure Bolt) URI
+- [ ] Enable database backups
+- [ ] Monitor connection pool
+- [ ] Set up logging and monitoring
+- [ ] Use a process manager (PM2, systemd)
+- [ ] Configure firewall and security groups
+
+### Environment Variables for Production
+
+```env
+NODE_ENV=production
+PORT=5000
+COGNODB_URI=bolt+s://secure-instance.databases.cognodb.cloud
+COGNODB_USERNAME=prod-user
+COGNODB_PASSWORD=strong-password
+FRONTEND_URL=https://app.yourdomain.com
+```
+
+---
+
+## 📖 API Documentation
+
+For detailed endpoint documentation, see **API Endpoints** section above.
+
+Common query parameters:
+- `skip`: Pagination offset (default: 0)
+- `limit`: Results per page (default: 20, max: 100)
+- `search`: Search term
+- `cuisine`: Filter by cuisine
+- `area`: Filter by area
+- `limit`: Recommendation limit (default: 10)
+
+---
+
+## 🎓 Learning Resources
+
+### Understanding the Recommendation System
+
+The recommendation algorithm demonstrates **why graph databases matter**:
+
+1. **Relationship-based**: Finds customers with similar ordering patterns
+2. **Multi-hop**: Traverses 3+ relationships efficiently
+3. **Performance**: Graph indexes make complex queries fast
+4. **Flexibility**: Easy to add more relationship types
+
+### Graph Concepts Demonstrated
+
+- **Nodes**: Entities (Customer, Restaurant, Dish, Order, etc.)
+- **Relationships**: Connections with types (PLACED, SERVES, CONTAINS, etc.)
+- **Properties**: Metadata on nodes and relationships
+- **Traversal**: Following relationships to find patterns
+- **Aggregation**: COUNT, COLLECT, SUM across paths
+
+---
+
+## 🐛 Troubleshooting
+
+### Connection Issues
+
+```
+Error: Unable to connect to CognoDB
+```
+
+**Solution**: Check `COGNODB_URI`, credentials, and network connectivity.
+
+### Empty Recommendations
+
+```
+Custom received 0 recommendations
+```
+
+**Solution**: Ensure database is seeded with sample data.
+
+```bash
+npm run seed
+```
+
+### Timeout on Large Queries
+
+**Solution**: Add depth limits and pagination:
+```
+GET /api/graph/customer/:id?maxDepth=50
+GET /api/customers?limit=20&skip=0
+```
+
+---
+
+## 📝 License
+
+ISC
+
+---
+
+## 👨‍💻 Author
+
+Built as a demonstration of graph database capabilities with Node.js, Express, and CognoDB (Neo4j).
+
+---
+
+## 🔗 Related Resources
+
+- [Neo4j Official Driver Docs](https://neo4j.com/docs/driver-manual/current/)
+- [Cypher Query Language](https://neo4j.com/docs/cypher-manual/current/)
+- [Express.js Guide](https://expressjs.com/)
+- [Graph Database Concepts](https://neo4j.com/developer/graph-database/)
+
+---
+
+**Backend Ready for Production** ✅
+
+This backend is fully functional, secure, and ready for deployment with a separate React frontend.
